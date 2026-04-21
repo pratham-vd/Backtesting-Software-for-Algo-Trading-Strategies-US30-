@@ -269,12 +269,24 @@ def get_trades(
     total = len(df)
     page  = df.iloc[offset: offset + limit]
 
-    # NaN (from NO_TRADE/NO_DATA rows) is not valid JSON — replace with None
-    page = page.where(pd.notnull(page), other=None)
+    # Convert to records then sanitise NaN/inf — these are not valid JSON.
+    # NaN appears in NO_TRADE/NO_DATA rows where entry/exit columns are empty.
+    import math
+    def _clean(val):
+        if val is None:
+            return None
+        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+            return None
+        return val
+
+    trades_clean = [
+        {k: _clean(v) for k, v in row.items()}
+        for row in page.to_dict('records')
+    ]
 
     return {
         "total"  : total,
         "offset" : offset,
         "limit"  : limit,
-        "trades" : page.to_dict('records'),
+        "trades" : trades_clean,
     }
