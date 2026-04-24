@@ -1,6 +1,6 @@
 // src/api.js — All backend calls in one place
 
-const BASE = 'https://backtesting-software-us30-backend.onrender.com/api'
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export const api = {
 
