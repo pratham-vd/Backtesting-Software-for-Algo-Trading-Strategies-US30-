@@ -1,16 +1,18 @@
-import { useState, useRef } from 'react'
-import { Upload, CheckCircle, AlertCircle, Play } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Upload, CheckCircle, AlertCircle, Play, RefreshCw } from 'lucide-react'
 import { api } from '../api'
 
-export default function UploadPage({ onRunComplete }) {
+export default function UploadPage({
+  onRunComplete,
+  meta, setMeta,
+  pips, setPips,
+  tp,   setTp,
+  hasPreviousResults
+}) {
   const [drag,      setDrag]      = useState(false)
-  const [file,      setFile]      = useState(null)
-  const [meta,      setMeta]      = useState(null)
   const [uploading, setUploading] = useState(false)
   const [running,   setRunning]   = useState(false)
   const [logs,      setLogs]      = useState([])
-  const [pips,      setPips]      = useState('20')
-  const [tp,        setTp]        = useState('30')
   const [error,     setError]     = useState(null)
   const inputRef = useRef()
 
@@ -29,9 +31,9 @@ export default function UploadPage({ onRunComplete }) {
       return
     }
     setError(null)
-    setFile(f)
     setMeta(null)
     setUploading(true)
+    setLogs([])
     addLog(`Uploading ${f.name}...`, 'info')
     try {
       const res = await api.upload(f)
@@ -60,7 +62,7 @@ export default function UploadPage({ onRunComplete }) {
       addLog(`✓ Done — ${res.days_processed} days processed`, 'ok')
       addLog('Fetching results...', 'info')
       const summary = await api.summary()
-      addLog(`✓ Complete — ${summary.total_trades} trades found`, 'ok')
+      addLog(`✓ Complete — ${summary.total_trades} trades  ·  WR ${summary.win_rate.toFixed(1)}%  ·  ${summary.total_pnl >= 0 ? '+' : ''}${summary.total_pnl.toFixed(1)} pts`, 'ok')
       onRunComplete(summary)
     } catch (e) {
       setError(e.message)
@@ -86,35 +88,83 @@ export default function UploadPage({ onRunComplete }) {
 
   return (
     <div className="page-body" style={{ maxWidth: 700 }}>
-      <div className="section-title" style={{ marginBottom: 24 }}>Data Input</div>
+      <div className="section-title" style={{ marginBottom: 24 }}>Data File</div>
 
-      <div
-        className={`upload-zone ${drag ? 'drag-over' : ''}`}
-        onClick={() => inputRef.current.click()}
-        onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]) }}
-      >
-        <input ref={inputRef} type="file" accept=".parquet" onChange={(e) => handleFile(e.target.files[0])} />
-        <div className="upload-icon">
-          {meta ? <CheckCircle size={36} color="var(--green)" /> : <Upload size={36} />}
-        </div>
-        <div className="upload-title">
-          {meta ? file.name : 'Drop your parquet file here'}
-        </div>
-        <div className="upload-sub">
-          {meta
-            ? `${meta.trading_days} days  ·  ${meta.date_start} → ${meta.date_end}`
-            : 'Click to browse or drag & drop  ·  .parquet only'}
-        </div>
-        {uploading && (
-          <div style={{ marginTop: 16 }}>
-            <div className="progress-bar">
+      {/* ── File zone ── */}
+      {meta ? (
+        /* File loaded — show status card */
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <CheckCircle size={30} color="var(--green)" strokeWidth={1.5} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-0)', marginBottom: 5 }}>
+                {meta.filename || 'us30_filtered.parquet'}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-2)', lineHeight: 1.9 }}>
+                {meta.trading_days} trading days
+                &nbsp;·&nbsp;
+                {meta.date_start} → {meta.date_end}
+                &nbsp;·&nbsp;
+                {meta.total_ticks?.toLocaleString()} ticks
+              </div>
+            </div>
+            <button
+              onClick={() => inputRef.current.click()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', fontSize: 10,
+                background: 'var(--bg-2)', border: '1px solid var(--border-hi)',
+                color: 'var(--text-1)', fontFamily: 'var(--mono)',
+                cursor: 'pointer', borderRadius: 'var(--radius)',
+                letterSpacing: '0.5px', flexShrink: 0,
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => { e.target.style.borderColor = 'var(--green)'; e.target.style.color = 'var(--green)' }}
+              onMouseLeave={e => { e.target.style.borderColor = 'var(--border-hi)'; e.target.style.color = 'var(--text-1)' }}
+            >
+              <RefreshCw size={11} /> Replace
+            </button>
+          </div>
+          <input
+            ref={inputRef} type="file" accept=".parquet"
+            style={{ display: 'none' }}
+            onChange={e => handleFile(e.target.files[0])}
+          />
+          {uploading && (
+            <div className="progress-bar" style={{ marginTop: 14 }}>
               <div className="progress-fill" style={{ width: '60%' }} />
             </div>
+          )}
+        </div>
+      ) : (
+        /* No file — drop zone */
+        <div
+          className={`upload-zone ${drag ? 'drag-over' : ''}`}
+          onClick={() => inputRef.current.click()}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]) }}
+        >
+          <input ref={inputRef} type="file" accept=".parquet"
+            onChange={(e) => handleFile(e.target.files[0])} />
+          <div className="upload-icon">
+            {uploading ? <span className="loading-spinner" /> : <Upload size={36} />}
           </div>
-        )}
-      </div>
+          <div className="upload-title">
+            {uploading ? 'Uploading...' : 'Drop your parquet file here'}
+          </div>
+          <div className="upload-sub">
+            Click to browse or drag & drop  ·  .parquet only
+          </div>
+          {uploading && (
+            <div style={{ marginTop: 16 }}>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: '60%' }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--red)', fontSize: 12 }}>
@@ -122,6 +172,7 @@ export default function UploadPage({ onRunComplete }) {
         </div>
       )}
 
+      {/* ── Params section — always visible once file loaded ── */}
       {meta && (
         <>
           <div className="divider" />
@@ -131,9 +182,7 @@ export default function UploadPage({ onRunComplete }) {
             <div className="card" style={{ padding: '18px 20px 16px' }}>
               <div className="card-label" style={{ marginBottom: 12 }}>PIPS Distance (points)</div>
               <input
-                type="text"
-                inputMode="numeric"
-                value={pips}
+                type="text" inputMode="numeric" value={pips}
                 style={inputStyle}
                 onChange={(e) => setPips(e.target.value.replace(/[^0-9]/g, ''))}
                 onBlur={() => setPips(String(Math.min(200, Math.max(1, parseInt(pips) || 20))))}
@@ -145,9 +194,7 @@ export default function UploadPage({ onRunComplete }) {
             <div className="card" style={{ padding: '18px 20px 16px' }}>
               <div className="card-label" style={{ marginBottom: 12 }}>TP Distance (points)</div>
               <input
-                type="text"
-                inputMode="numeric"
-                value={tp}
+                type="text" inputMode="numeric" value={tp}
                 style={inputStyle}
                 onChange={(e) => setTp(e.target.value.replace(/[^0-9]/g, ''))}
                 onBlur={() => setTp(String(Math.min(500, Math.max(1, parseInt(tp) || 30))))}
@@ -161,7 +208,7 @@ export default function UploadPage({ onRunComplete }) {
             </div>
           </div>
 
-          {/* Levels preview bar */}
+          {/* Levels preview */}
           <div style={{
             display: 'flex', gap: 20, marginBottom: 24,
             padding: '11px 16px',
@@ -180,15 +227,23 @@ export default function UploadPage({ onRunComplete }) {
             <span>Breakeven = <span style={{ color: 'var(--yellow)' }}>{beWR}%</span></span>
           </div>
 
-          <button className="btn btn-primary" onClick={handleRun} disabled={running}>
-            {running
-              ? <><span className="loading-spinner" /> Running...</>
-              : <><Play size={14} /> Run Backtest</>
-            }
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button className="btn btn-primary" onClick={handleRun} disabled={running}>
+              {running
+                ? <><span className="loading-spinner" /> Running...</>
+                : <><Play size={14} /> {hasPreviousResults ? 'Re-run Backtest' : 'Run Backtest'}</>
+              }
+            </button>
+            {hasPreviousResults && !running && (
+              <span style={{ fontSize: 10, color: 'var(--text-2)' }}>
+                Changing params and re-running will replace existing results
+              </span>
+            )}
+          </div>
         </>
       )}
 
+      {/* Console */}
       {logs.length > 0 && (
         <>
           <div className="divider" />

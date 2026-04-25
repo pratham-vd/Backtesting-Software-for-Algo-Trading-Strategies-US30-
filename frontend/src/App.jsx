@@ -11,12 +11,14 @@ const NAV = [
   { id: 'upload',    label: 'Data Input', icon: Settings  },
 ]
 
-const fmt = (n, d = 1) => n != null ? (n >= 0 ? '+' : '') + Number(n).toFixed(d) : '—'
-
 export default function App() {
   const [page,     setPage]     = useState('upload')
   const [summary,  setSummary]  = useState(null)
-  const [fileInfo, setFileInfo] = useState(null)   // persists across page nav
+
+  // Lifted state — persists when navigating away from Data Input
+  const [meta,     setMeta]     = useState(null)   // file info after upload
+  const [pips,     setPips]     = useState('20')   // strategy params
+  const [tp,       setTp]       = useState('30')
 
   // Check backend on mount — restore state if results already exist
   useEffect(() => {
@@ -30,13 +32,10 @@ export default function App() {
     }).catch(() => {})
   }, [])
 
-  const handleRunComplete = (summaryData, meta) => {
+  const handleRunComplete = (summaryData) => {
     setSummary(summaryData)
-    if (meta) setFileInfo(meta)
     setPage('dashboard')
   }
-
-  const hasResults = summary !== null
 
   return (
     <div className="app-shell">
@@ -60,8 +59,6 @@ export default function App() {
             </div>
           ))}
         </nav>
-
-
       </aside>
 
       {/* ── Main ────────────────────────────────────── */}
@@ -72,8 +69,6 @@ export default function App() {
             {page === 'trades'    && 'Trade Log  /  Full History'}
             {page === 'upload'    && 'Data Input  /  Upload & Configure'}
           </span>
-
-
         </div>
 
         {page === 'dashboard' && <DashboardPage summary={summary} />}
@@ -81,6 +76,13 @@ export default function App() {
         {page === 'upload'    && (
           <UploadPage
             onRunComplete={handleRunComplete}
+            meta={meta}
+            setMeta={setMeta}
+            pips={pips}
+            setPips={setPips}
+            tp={tp}
+            setTp={setTp}
+            hasPreviousResults={summary !== null}
           />
         )}
       </main>
