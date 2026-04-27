@@ -20,9 +20,19 @@ export default function App() {
   const [pips,     setPips]     = useState('20')   // strategy params
   const [tp,       setTp]       = useState('30')
 
-  // Check backend on mount — restore state if results already exist
+  // Restore full state on mount / page refresh
   useEffect(() => {
     api.status().then(s => {
+      // Restore file info so Data Input page shows correctly
+      if (s.meta) {
+        setMeta(s.meta)
+      }
+      // Restore last-used strategy params
+      if (s.last_config) {
+        setPips(String(s.last_config.pips_distance))
+        setTp(String(s.last_config.tp_pips))
+      }
+      // Restore results and go to dashboard
       if (s.has_results) {
         api.summary().then(data => {
           setSummary(data)

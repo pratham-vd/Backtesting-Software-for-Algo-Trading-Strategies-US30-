@@ -1,4 +1,5 @@
 # api.py — FastAPI backend for US30 Backtest Dashboard
+
 import os
 import io
 import math
@@ -151,6 +152,11 @@ def status():
     return {
         "file_loaded": _state["parquet_path"] is not None,
         "has_results": _state["results"] is not None,
+        "meta": _state["meta"],
+        "last_config": {
+            "pips_distance": config.PIPS_DISTANCE,
+            "tp_pips":       config.TP_PIPS,
+        } if _state["results"] is not None else None,
     }
 
 
